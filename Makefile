@@ -3,6 +3,6 @@ build:
 	cc -ggdb -I include/ -I include/ffmpeg/ -o main.bin ./obj/main.o -s -Wall -lraylib -lm -lpthread -ldl -lrt -lgmp -lavformat -lavcodec -lavutil -lswresample -lz
 
 run: build
-	./main
+	./main.bin
 
 default:run
