@@ -14,38 +14,39 @@ int main(void)
 {
     InitAudioDevice();
 
-    const char *filepath = "./resources/Crystal Castles - Celestica.mp3";
+    const char *filepath = "./resources/fiend - morissey.mp3";
 
     Music music = LoadMusicStream(filepath);
     PlayMusicStream(music);
-    SetMasterVolume(1);
 
+    music.looping = false;
+
+    double *data = (double*)malloc(sizeof(double)*music.stream.sampleSize);
+    int size = (int)(music.stream.sampleSize/1.5);
     int sample_rate = music.stream.sampleRate;
-    int channel_count = 0;
-    double *data;
-    int size;
+    int channel_count = music.stream.channels;
 
     if (decode_audio_file(filepath, sample_rate, &channel_count, &data, &size) != 0)
     {
         return -1;
     }
 
-    Vector2 *pts = malloc(sizeof(Vector2) * 100);
+    int cursor = 0;
 
-
-    char *Song = (char *)malloc(128 * sizeof(char));
+    char *Song = (char *)malloc(sizeof(char) * 128);
     Song = GetFileNameWithoutExt(filepath);
 
     const int screenHeight = 450;
     const int screenWidth = 800;
+    SetConfigFlags(FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, Song);
+
+    Vector2 *pts = malloc(sizeof(Vector2) * screenWidth);
 
     float timePlayed = 0.0f;
     bool pause = false;
 
-    SetTargetFPS(120);
-
-
+    SetTargetFPS(3000);
 
     while (!WindowShouldClose())
     {
@@ -67,22 +68,27 @@ int main(void)
                 ResumeMusicStream(music);
         }
 
-        timePlayed = GetMusicTimePlayed(music) / GetMusicTimeLength(music) * screenWidth;
+        timePlayed = (GetMusicTimePlayed(music) / GetMusicTimeLength(music)) * screenWidth;
 
         BeginDrawing();
         DrawFPS(20, 20);
         ClearBackground(RAYWHITE);
 
-        DrawText(Song, (screenWidth - MeasureText(Song, 50)) / 2, (screenHeight - 150) / 2, 50, DARKGRAY);
+        DrawText(Song, (screenWidth - MeasureText(Song, screenWidth/16)) / 2, (screenHeight - 150) / 2, screenWidth/16, DARKGRAY);
 
-        DrawRectangle(0, screenHeight - 20, screenWidth, 20, LIGHTGRAY);
-        DrawRectangle(0, screenHeight - 20, (int)timePlayed * 2, 20, MAROON);
+        DrawRectangle(0, screenHeight - (screenHeight/24), screenWidth, (screenHeight/24), LIGHTGRAY);
+        DrawRectangle(0, screenHeight - (screenHeight/24), (int)timePlayed, (screenHeight/24), MAROON);
 
-        //TODO: check out https://github.com/Crelloc/Music-Visualizer-Reboot/
 
         for (int i = 0; i < screenWidth; i++)
         {
-            pts[i] = (Vector2){i, (screenHeight - 20 - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i]) - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i] * 15};
+            cursor = (int)(((timePlayed * GetMusicTimeLength(music)) / screenWidth) * sample_rate);
+            if(cursor > size) {
+                break;
+            }
+
+            pts[i] = (Vector2){i, (screenHeight - (screenHeight/7) - data[cursor]) - data[cursor] * (screenHeight/30)};
+            cursor += i;
         }
 
         DrawLineStrip(pts, screenWidth, BLACK);
@@ -98,7 +104,6 @@ int main(void)
 
 int decode_audio_file(const char *path, const int sample_rate, int *channel_count, double **data, int *size)
 {
-
     // initialize all muxers, demuxers and protocols for libavformat
     // (does nothing if called twice during the course of one program execution)
     av_register_all();
@@ -126,11 +131,13 @@ int decode_audio_file(const char *path, const int sample_rate, int *channel_coun
             break;
         }
     }
+
     if (stream_index == -1)
     {
         fprintf(stderr, "Could not retrieve audio stream from file '%s'\n", path);
         return -1;
     }
+
     AVStream *stream = format->streams[stream_index];
 
     // find & open codec
@@ -152,7 +159,7 @@ int decode_audio_file(const char *path, const int sample_rate, int *channel_coun
     av_opt_set_int(swr, "in_sample_rate", codec->sample_rate, 0);
     av_opt_set_int(swr, "out_sample_rate", sample_rate, 0);
     av_opt_set_sample_fmt(swr, "in_sample_fmt", codec->sample_fmt, 0);
-    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_SAMPLE_FMT_DBL, 0);
+    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_SAMPLE_FMT_DBLP, 0);
     swr_init(swr);
     if (!swr_is_initialized(swr))
     {
@@ -187,7 +194,7 @@ int decode_audio_file(const char *path, const int sample_rate, int *channel_coun
         }
         // resample frames
         double *buffer;
-        av_samples_alloc((uint8_t **)&buffer, NULL, 1, frame->nb_samples, AV_SAMPLE_FMT_DBL, 0);
+        av_samples_alloc((uint8_t **)&buffer, NULL, 1, frame->nb_samples, AV_SAMPLE_FMT_DBLP, 0);
         int frame_count = swr_convert(swr, (uint8_t **)&buffer, frame->nb_samples, (const uint8_t **)frame->data, frame->nb_samples);
         // append resampled frames to data
         *data = (double *)realloc(*data, (*size + frame->nb_samples) * sizeof(double));
