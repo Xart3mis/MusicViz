@@ -12,25 +12,13 @@ int decode_audio_file(const char *path, const int sample_rate, int *channel_coun
 
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-
-    InitWindow(screenWidth, screenHeight, "");
     InitAudioDevice();
+
     const char *filepath = "./resources/Crystal Castles - Celestica.mp3";
+
     Music music = LoadMusicStream(filepath);
-    SetMasterVolume(1);
     PlayMusicStream(music);
-
-    char *Song = (char *)malloc(128 * sizeof(char));
-    Song = GetFileNameWithoutExt(filepath);
-
-    float timePlayed = 0.0f;
-    bool pause = false;
-
-    SetTargetFPS(100000);
-
-    int ranArr[screenWidth];
+    SetMasterVolume(1);
 
     int sample_rate = music.stream.sampleRate;
     int channel_count = 0;
@@ -42,9 +30,22 @@ int main(void)
         return -1;
     }
 
-    int cursor = 0;
+    Vector2 *pts = malloc(sizeof(Vector2) * 100);
 
-    Vector2 *pts = malloc(sizeof(Vector2) * size);
+
+    char *Song = (char *)malloc(128 * sizeof(char));
+    Song = GetFileNameWithoutExt(filepath);
+
+    const int screenHeight = 450;
+    const int screenWidth = 800;
+    InitWindow(screenWidth, screenHeight, Song);
+
+    float timePlayed = 0.0f;
+    bool pause = false;
+
+    SetTargetFPS(120);
+
+
 
     while (!WindowShouldClose())
     {
@@ -72,8 +73,7 @@ int main(void)
         DrawFPS(20, 20);
         ClearBackground(RAYWHITE);
 
-        DrawText(Song, (screenWidth - MeasureText(Song, 50)) / 2,
-                 (screenHeight - 150) / 2, 50, DARKGRAY);
+        DrawText(Song, (screenWidth - MeasureText(Song, 50)) / 2, (screenHeight - 150) / 2, 50, DARKGRAY);
 
         DrawRectangle(0, screenHeight - 20, screenWidth, 20, LIGHTGRAY);
         DrawRectangle(0, screenHeight - 20, (int)timePlayed * 2, 20, MAROON);
