@@ -135,9 +135,9 @@ int main(){
     printf("decoding ");
     for (int i = 0; i < numfiles; i++)
     {
-        if (numfiles != numfiles - 1)
+        if (i != numfiles - 1)
         {
-            printf("%s and ", files[i]);
+            printf("%s, ", files[i]);
         } else
         {
             printf("%s ", files[i]);
