@@ -82,7 +82,7 @@ int main(void)
 
         for (int i = 0; i < screenWidth; i++)
         {
-            pts[i] = (Vector2){i, (screenHeight - 20 - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i]) - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i] * 15};
+            pts[i] = (Vector2){i, (screenHeight - 60 - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i]) - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i] * 15};
         }
 
         DrawLineStrip(pts, screenWidth, BLACK);
