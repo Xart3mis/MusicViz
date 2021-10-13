@@ -1,12 +1,102 @@
-#include "time.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <libavutil/opt.h>
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswresample/swresample.h>
+#include "libswresample/swresample.h"
+#include "libavformat/avformat.h"
+#include "libavcodec/avcodec.h"
+#include "libavutil/opt.h"
 
-int decode_audio_file(const char *path, const int sample_rate, double **data, int *size)
+#include "raylib.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+
+int decode_audio_file(const char *path, const int sample_rate, int *channel_count, double **data, int *size);
+
+int main(void)
+{
+    const int screenWidth = 800;
+    const int screenHeight = 450;
+
+    InitWindow(screenWidth, screenHeight, "");
+    InitAudioDevice();
+    const char *filepath = "./resources/Crystal Castles - Celestica.mp3";
+    Music music = LoadMusicStream(filepath);
+    SetMasterVolume(1);
+    PlayMusicStream(music);
+
+    char *Song = (char *)malloc(128 * sizeof(char));
+    Song = GetFileNameWithoutExt(filepath);
+
+    float timePlayed = 0.0f;
+    bool pause = false;
+
+    SetTargetFPS(100000);
+
+    int ranArr[screenWidth];
+
+    int sample_rate = music.stream.sampleRate;
+    int channel_count = 0;
+    double *data;
+    int size;
+
+    if (decode_audio_file(filepath, sample_rate, &channel_count, &data, &size) != 0)
+    {
+        return -1;
+    }
+
+    int cursor = 0;
+
+    Vector2 *pts = malloc(sizeof(Vector2) * size);
+
+    while (!WindowShouldClose())
+    {
+        UpdateMusicStream(music);
+
+        if (IsKeyPressed(KEY_R))
+        {
+            StopMusicStream(music);
+            PlayMusicStream(music);
+        }
+
+        if (IsKeyPressed(KEY_SPACE))
+        {
+            pause = !pause;
+
+            if (pause)
+                PauseMusicStream(music);
+            else
+                ResumeMusicStream(music);
+        }
+
+        timePlayed = GetMusicTimePlayed(music) / GetMusicTimeLength(music) * screenWidth;
+
+        BeginDrawing();
+        DrawFPS(20, 20);
+        ClearBackground(RAYWHITE);
+
+        DrawText(Song, (screenWidth - MeasureText(Song, 50)) / 2,
+                 (screenHeight - 150) / 2, 50, DARKGRAY);
+
+        DrawRectangle(0, screenHeight - 20, screenWidth, 20, LIGHTGRAY);
+        DrawRectangle(0, screenHeight - 20, (int)timePlayed * 2, 20, MAROON);
+
+        //TODO: check out https://github.com/Crelloc/Music-Visualizer-Reboot/
+
+        for (int i = 0; i < screenWidth; i++)
+        {
+            pts[i] = (Vector2){i, (screenHeight - 60 - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i]) - data[(int)(((timePlayed * GetMusicTimeLength(music)) / 800) * sample_rate) + i] * 15};
+        }
+
+        DrawLineStrip(pts, screenWidth, BLACK);
+        EndDrawing();
+    }
+
+    UnloadMusicStream(music);
+    CloseAudioDevice();
+    CloseWindow();
+
+    return 0;
+}
+
+int decode_audio_file(const char *path, const int sample_rate, int *channel_count, double **data, int *size)
 {
 
     // initialize all muxers, demuxers and protocols for libavformat
@@ -50,6 +140,8 @@ int decode_audio_file(const char *path, const int sample_rate, double **data, in
         fprintf(stderr, "Failed to open decoder for stream #%u in file '%s'\n", stream_index, path);
         return -1;
     }
+
+    *channel_count = codec->channels;
 
     // prepare resampler
     struct SwrContext *swr = swr_alloc();
@@ -111,49 +203,4 @@ int decode_audio_file(const char *path, const int sample_rate, double **data, in
 
     // success
     return 0;
-}
-
-int main()
-{
-    const int numfiles = 3;
-    double total_time = 0;
-    double *data;
-    double time;
-    clock_t t;
-    int size;
-
-    char *files[numfiles];
-    files[0] = "./resources/Crystal Castles - Celestica.mp3";
-    files[2] = "./resources/Vierre Cloud - moment.mp3";
-    files[1] = "./resources/fiend - morissey.mp3";
-
-    for (int i = 0; i < numfiles; i++)
-    {
-        printf("Started decoding %s\n", files[i]);
-
-        t = clock();
-        decode_audio_file(files[i], 44100, &data, &size);
-        t = clock() - t;
-
-        printf("Done decoding %s\n", files[i]);
-
-        time = (((double)t) / CLOCKS_PER_SEC) * 1000.0f;
-        total_time += time;
-        printf("decoding %s took %.2f msec\n", files[i], time);
-        time = 0;
-    }
-
-    printf("decoding ");
-    for (int i = 0; i < numfiles; i++)
-    {
-        if (i != numfiles - 1)
-        {
-            printf("%s, ", files[i]);
-        }
-        else
-        {
-            printf("%s ", files[i]);
-        }
-    }
-    printf("took %.2f msec\n", total_time);
 }
