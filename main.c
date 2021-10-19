@@ -30,8 +30,6 @@ int main(void)
 
     SetTargetFPS(100000);
 
-    int ranArr[screenWidth];
-
     int sample_rate = music.stream.sampleRate;
     int channel_count = 0;
     double *data;
@@ -73,7 +71,7 @@ int main(void)
         ClearBackground(RAYWHITE);
 
         DrawText(Song, (screenWidth - MeasureText(Song, 50)) / 2,
-                 (screenHeight - 150) / 2, 50, DARKGRAY);
+            (screenHeight - 150) / 2, 50, DARKGRAY);
 
         DrawRectangle(0, screenHeight - 20, screenWidth, 20, LIGHTGRAY);
         DrawRectangle(0, screenHeight - 20, (int)timePlayed * 2, 20, MAROON);
