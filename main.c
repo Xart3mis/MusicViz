@@ -39,21 +39,32 @@ int decode_audio_file(const char* path, const int sample_rate, double** data, in
     AVStream* stream = format->streams[stream_index];
 
     // find & open codec
-    AVCodecContext* codec = stream->codec;
-    if (avcodec_open2(codec, avcodec_find_decoder(codec->codec_id), NULL) < 0) {
+    AVCodecContext* codec_ctx = stream->codec;
+    AVCodec *codec = codec_ctx->codec;
+
+    codec_ctx->thread_count = 0; // set codec to automatically determine how many threads suits best for the decoding job
+
+    if (codec->capabilities | AV_CODEC_CAP_FRAME_THREADS)
+    codec_ctx->thread_type = FF_THREAD_FRAME;
+    else if (codec->capabilities | AV_CODEC_CAP_SLICE_THREADS)
+    codec_ctx->thread_type = FF_THREAD_SLICE;
+    else
+    codec_ctx->thread_count = 1; //don't use multithreading
+
+    if (avcodec_open2(codec_ctx, avcodec_find_decoder(codec_ctx->codec_id), NULL) < 0) {
         fprintf(stderr, "Failed to open decoder for stream #%u in file '%s'\n", stream_index, path);
         return -1;
     }
 
     // prepare resampler
     struct SwrContext* swr = swr_alloc();
-    av_opt_set_int(swr, "in_channel_count",  codec->channels, 0);
+    av_opt_set_int(swr, "in_channel_count",  codec_ctx->channels, 0);
     av_opt_set_int(swr, "out_channel_count", 1, 0);
-    av_opt_set_int(swr, "in_channel_layout",  codec->channel_layout, 0);
+    av_opt_set_int(swr, "in_channel_layout",  codec_ctx->channel_layout, 0);
     av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_MONO, 0);
-    av_opt_set_int(swr, "in_sample_rate", codec->sample_rate, 0);
+    av_opt_set_int(swr, "in_sample_rate", codec_ctx->sample_rate, 0);
     av_opt_set_int(swr, "out_sample_rate", sample_rate, 0);
-    av_opt_set_sample_fmt(swr, "in_sample_fmt",  codec->sample_fmt, 0);
+    av_opt_set_sample_fmt(swr, "in_sample_fmt",  codec_ctx->sample_fmt, 0);
     av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_SAMPLE_FMT_DBL,  0);
     swr_init(swr);
     if (!swr_is_initialized(swr)) {
@@ -76,7 +87,7 @@ int decode_audio_file(const char* path, const int sample_rate, double** data, in
     while (av_read_frame(format, &packet) >= 0) {
         // decode one frame
         int gotFrame;
-        if (avcodec_decode_audio4(codec, frame, &gotFrame, &packet) < 0) {
+        if (avcodec_decode_audio4(codec_ctx, frame, &gotFrame, &packet) < 0) {
             break;
         }
         if (!gotFrame) {
@@ -95,7 +106,7 @@ int decode_audio_file(const char* path, const int sample_rate, double** data, in
     // clean up
     av_frame_free(&frame);
     swr_free(&swr);
-    avcodec_close(codec);
+    avcodec_close(codec_ctx);
     avformat_free_context(format);
 
     // success
